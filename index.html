@@ -3,211 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Snake Ultra Pro Mobile</title>
+<title>Ultra Mobile Space Shooter</title>
 <style>
 body {
-  margin:0;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-  background:#0a0a0a;
-  font-family:Arial, sans-serif;
-  overflow:hidden;
+  margin:0; background:black; font-family:Arial,sans-serif;
+  display:flex; flex-direction:column; align-items:center; overflow:hidden;
 }
-canvas { background:#111; border:4px solid #0f0; box-shadow:0 0 30px #0f0;}
-#scoreboard {
-  position:absolute;
-  top:10px; left:50%;
-  transform:translateX(-50%);
-  color:#0f0;
-  font-size:24px;
-  font-weight:bold;
-}
-#controls {
-  position:absolute;
-  bottom:20px;
-  display:grid;
-  grid-template-columns:repeat(3,60px);
-  grid-template-rows:repeat(2,60px);
-  gap:10px;
-}
+#scoreboard {color:#0f0;font-size:20px;margin:10px;}
+canvas {border:2px solid #0f0;}
+#controls {display:grid;grid-template-columns:repeat(3,60px);grid-template-rows:repeat(2,60px);gap:5px;margin-top:10px;}
 .button {
-  width:60px; height:60px;
-  background:#222;
-  color:#0f0;
-  font-size:24px;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  border-radius:10px;
-  box-shadow:0 0 15px #0f0;
-  user-select:none;
-  touch-action:none;
+  width:60px; height:60px; background:#222; color:#0f0; display:flex; justify-content:center; align-items:center;
+  border-radius:10px; box-shadow:0 0 10px #0f0; user-select:none; touch-action:none; font-size:24px;
 }
-.button:active { background:#0f0; color:#000; box-shadow:0 0 30px #0f0; }
+.button:active {background:#0f0;color:#000;box-shadow:0 0 20px #0f0;}
 </style>
 </head>
 <body>
 <div id="scoreboard">Score: 0 | High: 0 | Level: 1</div>
-<canvas id="game" width="500" height="500"></canvas>
-
+<canvas id="game" width="400" height="600"></canvas>
 <div id="controls">
   <div></div><div class="button" id="up">↑</div><div></div>
   <div class="button" id="left">←</div>
   <div class="button" id="down">↓</div>
   <div class="button" id="right">→</div>
+  <div class="button" id="fire">⚡</div>
 </div>
-
 <script>
-// --- Setup ---
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const grid = 20;
-let snake = {x:200, y:200, dx:grid, dy:0, cells:[], maxCells:4};
-let apple = {x:300, y:300, bonus:false};
-let powerUp = null; // speed or points
-let particles = [];
-let score = 0, level=1, highScore = localStorage.getItem('snakeHigh') || 0;
-let speedCounter = 0;
+let score=0,level=1,highScore=localStorage.getItem('shooterHigh')||0;
+let player={x:180,y:520,w:40,h:40,dx:0,dy:0};
+let bullets=[],enemies=[],particles=[],powerUps=[];
+let speedCounter=0;
 
 // --- Sounds ---
-const eatSound = new Audio('https://freesound.org/data/previews/82/82507_102265-lq.mp3');
-const bonusSound = new Audio('https://freesound.org/data/previews/41/41542_512123-lq.mp3');
-const gameOverSound = new Audio('https://freesound.org/data/previews/331/331912_3248244-lq.mp3');
+const shootSound=new Audio('https://freesound.org/data/previews/331/331912_3248244-lq.mp3');
+const explodeSound=new Audio('https://freesound.org/data/previews/82/82507_102265-lq.mp3');
 
-// --- Random helper ---
-function rand(max){ return Math.floor(Math.random()*max)*grid; }
-
-// --- Draw apple ---
-function drawApple(){
-  ctx.fillStyle = apple.bonus ? 'gold' : 'red';
-  ctx.shadowColor = apple.bonus ? 'yellow' : 'red';
-  ctx.shadowBlur = 15;
-  ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
-  ctx.shadowBlur = 0;
+// --- Helpers ---
+function rand(max){return Math.floor(Math.random()*max);}
+function addParticles(x,y,color){
+  for(let i=0;i<8;i++){particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:20,color});}
 }
 
-// --- Draw power-up ---
-function drawPowerUp(){
-  if(!powerUp) return;
-  ctx.fillStyle = powerUp.type==='speed'?'cyan':'magenta';
-  ctx.shadowColor = ctx.fillStyle;
-  ctx.shadowBlur = 15;
-  ctx.fillRect(powerUp.x, powerUp.y, grid-1, grid-1);
-  ctx.shadowBlur=0;
+// --- Enemy Spawn ---
+function spawnEnemy(){ 
+  let type=Math.random()<0.3?'fast':'normal';
+  enemies.push({x:rand(360),y:-40,w:40,h:40,dy:type==='fast'?3:1.5,type}); 
 }
+setInterval(spawnEnemy,1000-level*0.1);
 
-// --- Particle effect ---
-function createParticles(x,y,color){
-  for(let i=0;i<8;i++){
-    particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:20,color});
-  }
-}
-function updateParticles(){
-  particles.forEach((p,i)=>{
-    p.x += p.vx; p.y += p.vy; p.life--;
-    ctx.fillStyle=p.color;
-    ctx.globalAlpha = Math.max(p.life/20,0);
-    ctx.fillRect(p.x,p.y,2,2);
-    ctx.globalAlpha = 1;
-    if(p.life<=0) particles.splice(i,1);
-  });
-}
+// --- Controls ---
+function movePlayer(dx,dy){player.dx=dx;player.dy=dy;}
+['up','down','left','right'].forEach(id=>{
+  document.getElementById(id).addEventListener('touchstart',()=>{switch(id){case'up':movePlayer(0,-5);break;case'down':movePlayer(0,5);break;case'left':movePlayer(-5,0);break;case'right':movePlayer(5,0);break;}});
+  document.getElementById(id).addEventListener('touchend',()=>movePlayer(0,0));
+});
+document.getElementById('fire').addEventListener('touchstart',()=>bullets.push({x:player.x+15,y:player.y-10,w:10,h:20,dy:-10}));
 
 // --- Game Loop ---
 function loop(){
   requestAnimationFrame(loop);
-  if (++speedCounter < 5 - Math.min(level*0.3,4)) return; // speed increase
-  speedCounter=0;
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  
+  // Move player
+  player.x+=player.dx; player.y+=player.dy;
+  player.x=Math.max(0,Math.min(360,player.x));
+  player.y=Math.max(0,Math.min(560,player.y));
+  ctx.fillStyle='cyan'; ctx.fillRect(player.x,player.y,player.w,player.h);
 
-  // Move snake
-  snake.x += snake.dx; snake.y += snake.dy;
+  // Move bullets
+  bullets.forEach((b,i)=>{b.y+=b.dy; ctx.fillStyle='yellow'; ctx.fillRect(b.x,b.y,b.w,b.h); if(b.y<0) bullets.splice(i,1);});
 
-  // Wall wrap
-  if(snake.x <0) snake.x = canvas.width - grid;
-  if(snake.x >= canvas.width) snake.x =0;
-  if(snake.y <0) snake.y = canvas.height - grid;
-  if(snake.y >= canvas.height) snake.y =0;
+  // Move enemies
+  enemies.forEach((e,i)=>{
+    e.y+=e.dy;
+    ctx.fillStyle=e.type==='fast'?'orange':'red';
+    ctx.fillRect(e.x,e.y,e.w,e.h);
 
-  snake.cells.unshift({x:snake.x, y:snake.y});
-  if(snake.cells.length > snake.maxCells) snake.cells.pop();
-
-  // Draw apple and power-up
-  drawApple();
-  drawPowerUp();
-
-  // Draw snake
-  snake.cells.forEach((cell, index)=>{
-    let intensity = 0.2 + 0.8*(index/snake.cells.length);
-    ctx.fillStyle = `rgba(0,255,0,${intensity})`;
-    ctx.shadowColor = 'lime';
-    ctx.shadowBlur = 10;
-    ctx.fillRect(cell.x, cell.y, grid-1, grid-1);
-    ctx.shadowBlur=0;
-
-    // Eat apple
-    if(cell.x===apple.x && cell.y===apple.y){
-      snake.maxCells++;
-      score += apple.bonus?5:1;
-      apple.x = rand(canvas.width/grid);
-      apple.y = rand(canvas.height/grid);
-      apple.bonus = Math.random()<0.1; // 10% chance
-      apple.bonus ? bonusSound.play() : eatSound.play();
-      createParticles(cell.x,cell.y,apple.bonus?'gold':'red');
-
-      if(score %5 === 0) level++;
-      if(Math.random()<0.2 && !powerUp){
-        powerUp = {x:rand(canvas.width/grid), y:rand(canvas.height/grid), type:Math.random()<0.5?'speed':'points',life:200};
+    bullets.forEach((b,j)=>{
+      if(b.x<b.x+e.w && b.x+b.w>e.x && b.y<b.y+e.h && b.y+b.h>e.y){
+        bullets.splice(j,1); enemies.splice(i,1);
+        score+=1; addParticles(e.x,e.y,'red');
+        level = Math.floor(score/10)+1;
+        highScore=Math.max(highScore,score); localStorage.setItem('shooterHigh',highScore);
+        document.getElementById('scoreboard').innerText=`Score: ${score} | High: ${highScore} | Level: ${level}`;
       }
+    });
 
-      highScore = Math.max(highScore,score);
-      localStorage.setItem('snakeHigh',highScore);
-      document.getElementById('scoreboard').innerText = `Score: ${score} | High: ${highScore} | Level: ${level}`;
+    if(player.x<e.x+e.w && player.x+player.w>e.x && player.y<e.y+e.h && player.y+player.h>e.y){
+      alert("Game Over! Score: "+score); score=0; player.x=180; player.y=520; bullets=[]; enemies=[]; particles=[];
+      document.getElementById('scoreboard').innerText=`Score: 0 | High: ${highScore} | Level: 1`;
     }
 
-    // Eat power-up
-    if(powerUp && cell.x===powerUp.x && cell.y===powerUp.y){
-      if(powerUp.type==='speed') speedCounter=0; 
-      if(powerUp.type==='points') score+=3;
-      createParticles(cell.x,cell.y,powerUp.type==='speed'?'cyan':'magenta');
-      powerUp = null;
-      bonusSound.play();
-    }
-
-    // Self collision
-    for(let i=index+1;i<snake.cells.length;i++){
-      if(cell.x===snake.cells[i].x && cell.y===snake.cells[i].y){
-        gameOverSound.play();
-        alert(`Game Over! Score: ${score}`);
-        snake={x:200,y:200,dx:grid,dy:0,cells:[],maxCells:4};
-        score=0; level=1; apple.bonus=false; powerUp=null;
-        document.getElementById('scoreboard').innerText=`Score: 0 | High: ${highScore} | Level: 1`;
-      }
-    }
+    if(e.y>600) enemies.splice(i,1);
   });
 
-  updateParticles();
-  if(powerUp){ powerUp.life--; if(powerUp.life<=0) powerUp=null;}
+  // Update particles
+  particles.forEach((p,i)=>{p.x+=p.vx; p.y+=p.vy; p.life--; ctx.fillStyle=p.color; ctx.globalAlpha=Math.max(p.life/20,0); ctx.fillRect(p.x,p.y,2,2); ctx.globalAlpha=1; if(p.life<=0) particles.splice(i,1);});
+
+  requestAnimationFrame(loop);
 }
-
-// --- Keyboard controls ---
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft' && snake.dx===0){snake.dx=-grid; snake.dy=0;}
-  if(e.key==='ArrowUp' && snake.dy===0){snake.dx=0; snake.dy=-grid;}
-  if(e.key==='ArrowRight' && snake.dx===0){snake.dx=grid; snake.dy=0;}
-  if(e.key==='ArrowDown' && snake.dy===0){snake.dx=0; snake.dy=grid;}
-});
-
-// --- Mobile button controls ---
-document.getElementById('up').addEventListener('touchstart',()=>{if(snake.dy===0){snake.dx=0;snake.dy=-grid;}});
-document.getElementById('down').addEventListener('touchstart',()=>{if(snake.dy===0){snake.dx=0;snake.dy=grid;}});
-document.getElementById('left').addEventListener('touchstart',()=>{if(snake.dx===0){snake.dx=-grid;snake.dy=0;}});
-document.getElementById('right').addEventListener('touchstart',()=>{if(snake.dx===0){snake.dx=grid;snake.dy=0;}});
-
-// --- Start ---
 requestAnimationFrame(loop);
 </script>
 </body>
